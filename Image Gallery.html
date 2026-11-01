@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Image Gallery</title>
+<style>
+:root{color-scheme:dark;--bg:#2a2a2b;--card:#3b3b3c;--card-h:#4a4a4b;--ink:#e9e9e9;--sub:#d0d0d0;--dim:#7d7d7e;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.grid{max-width:1420px;margin:0 auto;padding:56px 28px 72px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:22px}
+@media (min-width:1100px){.grid{grid-template-columns:repeat(5,1fr)}}
+.card{position:relative;background:var(--card);border-radius:14px;overflow:hidden;box-shadow:0 6px 16px rgba(0,0,0,.25);transition:background .2s,transform .2s;cursor:pointer}
+.card:hover,.card:focus-within{background:var(--card-h);transform:translateY(-2px)}
+.pic{aspect-ratio:1/1;position:relative;overflow:hidden}
+.pic svg{width:100%;height:100%;display:block}
+.pic::after{content:"";position:absolute;inset:0;background:linear-gradient(#000a,transparent 40%);pointer-events:none}
+.more{position:absolute;top:14px;right:14px;z-index:2;width:30px;height:30px;border-radius:50%;border:0;background:rgba(190,190,190,.5);color:#fff;display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(4px)}
+.meta{padding:18px 20px 20px;display:grid;grid-template-columns:1fr auto;align-items:start;gap:4px 8px}
+.name{font-size:17px;color:var(--sub);margin:0 0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.date{font-size:15px;color:var(--sub);margin:0 0 8px}
+.size{font-size:13px;color:var(--dim);margin:0}
+.edit{border:0;background:none;color:var(--sub);padding:6px;margin:-4px -6px 0 0;cursor:pointer;border-radius:8px}
+.more:focus-visible,.edit:focus-visible,.card:focus-visible{outline:2px solid #8ab4ff;outline-offset:2px}
+#lb{position:fixed;inset:0;background:rgba(10,10,10,.88);display:none;place-items:center;z-index:9;padding:24px}
+#lb.on{display:grid}
+#lb div{width:min(80vmin,640px);border-radius:16px;overflow:hidden}
+#lb svg{width:100%;display:block}
+#lb p{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;color:var(--sub);margin:0}
+</style>
+</head>
+<body>
+<main class="grid" id="grid" aria-label="Image gallery"></main>
+<div id="lb" role="dialog" aria-modal="true" aria-label="Image preview"><div id="lbimg"></div><p id="lbcap"></p></div>
+<script>
+const M={
+house:(a,b)=>`<rect y="150" width="200" height="50" fill="#2b2e33"/><rect x="40" y="75" width="120" height="85" fill="${a}"/><path d="M30 80 L100 28 L170 80Z" fill="#1c2128"/><rect x="58" y="88" width="24" height="26" fill="#e7eef2"/><rect x="118" y="88" width="24" height="26" fill="#e7eef2"/><rect x="86" y="120" width="28" height="40" fill="${b}"/>`,
+tower:(a,b)=>`<rect x="70" y="80" width="60" height="120" fill="#eee"/><path d="M70 80 Q100 10 130 80Z" fill="${a}"/><rect x="96" y="20" width="8" height="22" fill="${a}"/><circle cx="100" cy="115" r="14" fill="#fff" stroke="#333" stroke-width="3"/><rect x="0" y="150" width="200" height="50" fill="${b}"/><path d="M0 150 L30 110 L55 150Z" fill="#9a3b3b"/>`,
+sky:(a,b)=>`<g transform="rotate(-18 100 100)"><rect x="20" y="30" width="70" height="200" fill="${a}"/><rect x="100" y="-20" width="60" height="240" fill="${b}"/><g stroke="#0006" stroke-width="2"><path d="M20 70H90M20 110H90M20 150H90M100 40H160M100 90H160M100 140H160"/></g></g>`,
+arch:(a,b)=>`<rect width="200" height="200" fill="#c9c3b8"/><path d="M30 200V90Q30 20 100 20T170 90V200Z" fill="#aaa397"/><path d="M60 200V100Q60 55 100 55T140 100V200Z" fill="${a}"/><path d="M100 55V200" stroke="#0007" stroke-width="3"/><rect x="60" y="130" width="80" height="4" fill="${b}"/>`,
+dome:(a,b)=>`<rect y="130" width="200" height="70" fill="${a}"/><path d="M60 130Q100 40 140 130Z" fill="#cbb89a"/><rect x="95" y="52" width="10" height="16" fill="#cbb89a"/><g fill="${b}"><rect x="10" y="140" width="10" height="30"/><rect x="40" y="140" width="10" height="30"/><rect x="150" y="140" width="10" height="30"/><rect x="180" y="140" width="10" height="30"/></g>`,
+city:(a,b)=>`<rect y="120" width="200" height="80" fill="${a}"/><g fill="${b}"><rect x="10" y="95" width="26" height="60"/><rect x="42" y="75" width="22" height="80"/><rect x="72" y="105" width="30" height="50"/><rect x="110" y="85" width="24" height="70"/><rect x="142" y="100" width="40" height="55"/></g>`,
+neon:(a,b)=>`<rect x="0" y="0" width="200" height="200" fill="#1a1115"/><rect x="25" y="55" width="150" height="26" fill="#08162c" stroke="${a}" stroke-width="3"/><rect x="40" y="110" width="80" height="18" fill="#08162c" stroke="${a}" stroke-width="3"/><rect x="132" y="104" width="40" height="36" fill="${b}"/><rect x="0" y="170" width="200" height="30" fill="#0b0707"/>`,
+statue:(a,b)=>`<ellipse cx="55" cy="110" rx="45" ry="75" fill="${a}"/><ellipse cx="140" cy="130" rx="42" ry="60" fill="${b}"/><circle cx="150" cy="115" r="5" fill="#111"/><circle cx="135" cy="118" r="4" fill="#111"/>`,
+lantern:(a,b)=>`<rect x="110" width="90" height="200" fill="${a}"/><rect x="125" y="20" width="60" height="150" fill="${b}" opacity=".55"/><ellipse cx="55" cy="55" rx="28" ry="32" fill="#f2e4e4"/><rect x="38" y="48" width="34" height="5" fill="#a33"/><rect x="0" y="150" width="90" height="50" fill="#4d8a4e"/>`,
+brut:(a,b)=>`<g fill="${a}"><rect y="20" width="200" height="26"/><rect y="56" width="200" height="26"/><rect y="92" width="200" height="26"/><rect y="128" width="200" height="26"/></g><g fill="${b}"><rect y="46" width="200" height="10"/><rect y="82" width="200" height="10"/><rect y="118" width="200" height="10"/><rect y="154" width="200" height="10"/></g><rect y="164" width="200" height="36" fill="#1a1c19"/>`
+};
+const D=[
+["house","#2c93a8","#a63b3b","#1f5f78","#8fb5c9"],["city","#6d4a2c","#2a2018","#c28a4c","#3a2a1d"],["tower","#2e7d6b","#9fb48f","#c9d9e6","#e9eff3"],["dome","#a8765a","#6b4330","#c98d6b","#e7c6ad"],["sky","#7c1f27","#2d3036","#cfd3d8","#fff"],
+["city","#241d20","#b78e5a","#c9985a","#1a1214"],["neon","#2fb7ff","#f5473a","#15121a","#4a2a22"],["dome","#8f8368","#403526","#6a5d48","#e0d0a8"],["city","#1b1c18","#3a3a2e","#c8bd8f","#2a2a22"],["arch","#6a2f1f","#cabda0","#ddd4c2","#d8d2c6"],
+["brut","#3a3d36","#6e7a5c","#c6c9c0","#8c9086"],["city","#7a8a92","#e9ecee","#4e5e68","#aab6bc"],["statue","#6a6458","#6f4a34","#3a362e","#1e1c18"],["sky","#6f8a9c","#2f3f4a","#a9b8c2","#d9e0e4"],["lantern","#c0392b","#4b8fb0","#e8ecee","#cfe3ee"]
+];
+const dates=["7/11/19","7/27/13","5/27/15","5/19/12","5/7/16","8/15/17","7/18/17","10/6/13","1/31/14","9/23/16","6/21/19","11/7/16","9/4/12","5/27/15","8/21/15"];
+const sizes=["6.8","3.4","3.2","7.6","5.8","3.1","7.6","5.5","5.7","7.2","3.2","7.0","3.6","7.1","5.6"];
+const ids=["593265","461207","113410","773337","188184","328513","798731","891769","569738","287745","805325","094578","619656","730431","242239"];
+const svg=(i,s=1)=>{const [m,a,b,sk,gd]=D[i];return `<svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Photo IMG_${ids[i]}"><defs><linearGradient id="s${i}${s}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sk}"/><stop offset="1" stop-color="${gd}"/></linearGradient></defs><rect width="200" height="200" fill="url(#s${i}${s})"/>${M[m](a,b)}</svg>`};
+const pencil=`<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zM20.7 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
+const dots=`<svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>`;
+const g=document.getElementById("grid"),lb=document.getElementById("lb");
+D.forEach((_,i)=>{
+ const c=document.createElement("article");c.className="card";c.tabIndex=0;
+ c.innerHTML=`<div class="pic">${svg(i)}<button class="more" aria-label="More options for IMG_${ids[i]}.jpg">${dots}</button></div><div class="meta"><div><p class="name">IMG_${ids[i]}.jpg</p><p class="date">${dates[i]}</p><p class="size">${sizes[i]} mb</p></div><button class="edit" aria-label="Edit IMG_${ids[i]}.jpg">${pencil}</button></div>`;
+ c.onclick=e=>{if(e.target.closest("button"))return;open(i)};
+ c.onkeydown=e=>{if(e.key==="Enter"&&e.target===c)open(i)};
+ g.appendChild(c);
+});
+function open(i){document.getElementById("lbimg").innerHTML=svg(i,2);document.getElementById("lbcap").textContent=`IMG_${ids[i]}.jpg · ${dates[i]} · ${sizes[i]} mb`;lb.classList.add("on")}
+lb.onclick=()=>lb.classList.remove("on");
+addEventListener("keydown",e=>{if(e.key==="Escape")lb.classList.remove("on")});
+</script>
+</body>
+</html>
